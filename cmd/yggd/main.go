@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +21,7 @@ import (
 	"github.com/redhatinsights/yggdrasil"
 	internal "github.com/redhatinsights/yggdrasil/internal"
 	http2 "github.com/redhatinsights/yggdrasil/internal/clients/http"
+	tlsConfig "github.com/redhatinsights/yggdrasil/internal/tls"
 	"github.com/redhatinsights/yggdrasil/internal/transport"
 	"github.com/redhatinsights/yggdrasil/internal/transport/http"
 	"github.com/redhatinsights/yggdrasil/internal/transport/mqtt"
@@ -199,35 +199,14 @@ func main() {
 			return cli.Exit(err, 1)
 		}
 
-		// Read certificates, create a TLS config, and initialize HTTP client
-		var certData, keyData []byte
-		if c.String("cert-file") != "" && c.String("key-file") != "" {
-			var err error
-			certData, err = ioutil.ReadFile(c.String("cert-file"))
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot read certificate file: %v", err), 1)
-			}
-			keyData, err = ioutil.ReadFile(c.String("key-file"))
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot read key file: %w", err), 1)
-			}
-		}
-		rootCAs := make([][]byte, 0)
-		for _, file := range c.StringSlice("ca-root") {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot read certificate authority: %v", err), 1)
-			}
-			rootCAs = append(rootCAs, data)
-		}
-		tlsConfig, err := newTLSConfig(certData, keyData, rootCAs)
+		TLSConfig, err := HandleCertificates(c)
 		if err != nil {
 			return cli.Exit(fmt.Errorf("cannot create TLS config: %w", err), 1)
 		}
-		httpClient := http2.NewHTTPClient(tlsConfig, getUserAgent(app))
 
-		// Create gRPC dispatcher service
+		httpClient := http2.NewHTTPClient(TLSConfig, getUserAgent(app))
 		d := newDispatcher(httpClient)
+
 		s := grpc.NewServer()
 		pb.RegisterDispatcherServer(s, d)
 
@@ -242,7 +221,7 @@ func main() {
 			}
 		}()
 
-		controlPlaneTransport, err := createTransport(c, tlsConfig, d)
+		controlPlaneTransport, err := createTransport(c, TLSConfig, d)
 		if err != nil {
 			return cli.Exit(err.Error(), 1)
 		}
@@ -302,6 +281,9 @@ func main() {
 			"BASE_CONFIG_DIR=" + configDir,
 			"LOG_LEVEL=" + level.String(),
 			"DEVICE_ID=" + ClientID,
+			"CERT_FILE=" + c.String("cert-file"),
+			"KEY_FILE=" + c.String("key-file"),
+			"CA_ROOT=", strings.Join(c.StringSlice("ca-root"), ";"),
 		}
 		for _, info := range fileInfos {
 			if strings.HasSuffix(info.Name(), "worker") {
@@ -359,7 +341,7 @@ func getUserAgent(app *cli.App) string {
 	return fmt.Sprintf("%v/%v", app.Name, app.Version)
 }
 
-func createTransport(c *cli.Context, tlsConfig *tls.Config, d *dispatcher) (transport.Transport, error) {
+func createTransport(c *cli.Context, tlsConfig *tlsConfig.TLSConfig, d *dispatcher) (transport.Transport, error) {
 	dataHandler := createDataHandler(d)
 	controlMessageHandler := createControlMessageHandler(d)
 
@@ -367,7 +349,7 @@ func createTransport(c *cli.Context, tlsConfig *tls.Config, d *dispatcher) (tran
 	switch transportType {
 	case MQTT:
 		brokers := c.StringSlice("broker")
-		return mqtt.NewMQTTTransport(ClientID, brokers, tlsConfig, controlMessageHandler, dataHandler)
+		return mqtt.NewMQTTTransport(ClientID, brokers, tlsConfig.Config, controlMessageHandler, dataHandler)
 	case HTTP:
 		server := c.String("http-server")
 		return http.NewHTTPTransport(ClientID, server, tlsConfig, getUserAgent(c.App), time.Second*5, controlMessageHandler, dataHandler)
@@ -458,8 +440,10 @@ func createDataHandler(d *dispatcher) func(msg []byte) {
 			return
 		}
 		log.Tracef("message: %+v", data)
+
 		d.sendQ <- data
 	}
+
 }
 
 func getClientID(c *cli.Context) (string, error) {
@@ -509,4 +493,8 @@ func getCertID(c *cli.Context) (string, error) {
 		clientID = data
 	}
 	return string(clientID), nil
+}
+
+func HandleCertificates(c *cli.Context) (*tlsConfig.TLSConfig, error) {
+	return tlsConfig.NewTLSConfig(c.String("cert-file"), c.String("key-file"), c.StringSlice("ca-root"))
 }

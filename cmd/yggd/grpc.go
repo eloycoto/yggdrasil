@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 
 	"git.sr.ht/~spc/go-log"
 	"github.com/redhatinsights/yggdrasil"
@@ -43,7 +44,7 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 		deadWorkers: make(chan int),
 		workers:     make(map[string]worker),
 		pidHandlers: make(map[int]string),
-		httpClient: httpClient,
+		httpClient:  httpClient,
 	}
 }
 

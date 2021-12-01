@@ -1,7 +1,6 @@
 package http
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
@@ -11,6 +10,8 @@ import (
 	"github.com/redhatinsights/yggdrasil"
 	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 	"github.com/redhatinsights/yggdrasil/internal/transport"
+
+	"github.com/redhatinsights/yggdrasil/internal/tls"
 )
 
 type Transport struct {
@@ -23,7 +24,7 @@ type Transport struct {
 	disconnected    atomic.Value
 }
 
-func NewHTTPTransport(ClientID string, server string, tlsConfig *tls.Config, userAgent string,
+func NewHTTPTransport(ClientID string, server string, tlsConfig *tls.TLSConfig, userAgent string,
 	pollingInterval time.Duration, controlHandler transport.CommandHandler,
 	dataHandler transport.DataHandler) (*Transport, error) {
 	disconnected := atomic.Value{}
@@ -106,5 +107,5 @@ func (t *Transport) send(message interface{}, channel string) error {
 }
 
 func (t *Transport) getUrl(direction string, channel string) string {
-	return fmt.Sprintf("http://%s/api/k4e-management/v1/%s/%s/%s", t.Server, channel, t.ClientID, direction)
+	return fmt.Sprintf("https://%s/api/k4e-management/v1/%s/%s/%s", t.Server, channel, t.ClientID, direction)
 }

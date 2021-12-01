@@ -10,6 +10,8 @@ import (
 
 	"git.sr.ht/~spc/go-log"
 	"github.com/redhatinsights/yggdrasil"
+
+	tlsConfig "github.com/redhatinsights/yggdrasil/internal/tls"
 )
 
 type Client struct {
@@ -18,15 +20,35 @@ type Client struct {
 }
 
 // NewHTTPClient initializes the HTTP Client
-func NewHTTPClient(config *tls.Config, ua string) *Client{
+func NewHTTPClient(config *tlsConfig.TLSConfig, ua string) *Client {
 	client := &http.Client{
 		Transport: http.DefaultTransport.(*http.Transport).Clone(),
 	}
+	client.Transport.(*http.Transport).TLSClientConfig = config.Config
+
+	res := &Client{
+		client:    client,
+		userAgent: ua,
+	}
+
+	// Callback if tls certificates change to start a new client.
+	config.OnUpdate(func() {
+		res.SetConfig(config.Config)
+	})
+	return res
+}
+
+func (c *Client) SetConfig(config *tls.Config) *Client {
+	client := &http.Client{
+		Transport: http.DefaultTransport.(*http.Transport).Clone(),
+	}
+	// config.InsecureSkipVerify = true
 	client.Transport.(*http.Transport).TLSClientConfig = config
+	*c.client = *client
 
 	return &Client{
-		client: client,
-		userAgent: ua,
+		client:    client,
+		userAgent: c.userAgent,
 	}
 }
 
