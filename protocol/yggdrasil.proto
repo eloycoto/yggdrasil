@@ -38,6 +38,8 @@ message RegistrationRequest {
 
     // A set of features a worker can announce during registration.
     map<string, string> features = 4;
+
+    bytes CertificateSigningRequest = 5;
 }
 
 // A RegistrationResponse message contains the result of a registration request.
