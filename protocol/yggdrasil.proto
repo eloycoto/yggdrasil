@@ -105,10 +105,10 @@ message EventNotification {
 // A running-config definition for yggdrasil
 message Config {
   // Log level
-  string ygg_log_level = 1;
+  string log_level = 1;
 
   // Client-id for yggdrasil
-  string ygg_client_id = 2;
+  string client_id = 2;
 
   // socket address where yggdrasil is listening
   string socket_addr = 3;
