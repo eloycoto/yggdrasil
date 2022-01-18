@@ -34,9 +34,10 @@ type dispatcher struct {
 	workers     map[string]worker
 	pidHandlers map[int]string
 	httpClient  *http.Client
+	config      *pb.Config
 }
 
-func newDispatcher(httpClient *http.Client) *dispatcher {
+func newDispatcher(httpClient *http.Client, config *pb.Config) *dispatcher {
 	return &dispatcher{
 		dispatchers: make(chan map[string]map[string]string),
 		sendQ:       make(chan yggdrasil.Data),
@@ -45,6 +46,7 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 		workers:     make(map[string]worker),
 		pidHandlers: make(map[int]string),
 		httpClient:  httpClient,
+		config:      config,
 	}
 }
 
@@ -75,6 +77,10 @@ func (d *dispatcher) Register(ctx context.Context, r *pb.RegistrationRequest) (*
 	d.sendDispatchersMap()
 
 	return &pb.RegistrationResponse{Registered: true, Address: w.addr}, nil
+}
+
+func (d *dispatcher) GetConfig(ctx context.Context, _ *pb.Empty) (*pb.Config, error) {
+	return d.config, nil
 }
 
 func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) {
