@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/redhatinsights/yggdrasil/internal"
-	"github.com/redhatinsights/yggdrasil/internal/http"
-	"github.com/redhatinsights/yggdrasil/internal/transport"
 
 	"git.sr.ht/~spc/go-log"
 	"github.com/redhatinsights/yggdrasil"
@@ -194,34 +192,10 @@ func main() {
 		ClientID = string(clientID)
 
 		// Read certificates, create a TLS config, and initialize HTTP client
-		var certData, keyData []byte
-		if config.CertFile != "" && config.KeyFile != "" {
-			var err error
-			certData, err = ioutil.ReadFile(config.CertFile)
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot read certificate file: %v", err), 1)
-			}
-			keyData, err = ioutil.ReadFile(config.KeyFile)
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot read key file: %w", err), 1)
-			}
-		}
-		rootCAs := make([][]byte, 0)
-		for _, file := range c.StringSlice(config.CaRoot) {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot read certificate authority: %v", err), 1)
-			}
-			rootCAs = append(rootCAs, data)
-		}
-		tlsConfig, err := newTLSConfig(certData, keyData, rootCAs)
-		if err != nil {
-			return cli.Exit(fmt.Errorf("cannot create TLS config: %w", err), 1)
-		}
-		httpClient := http.NewHTTPClient(tlsConfig, UserAgent)
+		_ = config.SetHTTPClient()
 
 		// Create gRPC dispatcher service
-		d := newDispatcher(httpClient, config)
+		d := newDispatcher(config)
 		s := grpc.NewServer()
 		pb.RegisterDispatcherServer(s, d)
 		l, err := net.Listen("unix", config.SocketAddr)
@@ -239,24 +213,21 @@ func main() {
 			d: d,
 		}
 
-		var transporter transport.Transporter
-		switch config.Protocol {
-		case "mqtt":
-			var err error
-			transporter, err = transport.NewMQTTTransport(ClientID, config.Server, tlsConfig, client.DataReceiveHandlerFunc)
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot create MQTT transport: %w", err), 1)
-			}
-		case "http":
-			var err error
-			transporter, err = transport.NewHTTPTransport(ClientID, config.Server, tlsConfig, UserAgent, time.Second*5, client.DataReceiveHandlerFunc)
-			if err != nil {
-				return cli.Exit(fmt.Errorf("cannot create HTTP transport: %w", err), 1)
-			}
-		default:
-			return cli.Exit(fmt.Errorf("unsupported transport protocol: %v", config.Protocol), 1)
+		transporter, err := config.SetTransport(
+			ClientID,
+			client.DataReceiveHandlerFunc,
+			&TransportOps{UserAgent: UserAgent, PollingInterval: 5 * time.Second})
+
+		if err != nil {
+			cli.Exit(fmt.Sprintf("Cannot initialize transport: %v", err), 1)
 		}
 		client.t = transporter
+
+		err = config.WatcherUpdate()
+		if err = config.WatcherUpdate(); err != nil {
+			cli.Exit(fmt.Sprintf("Cannot start tls watcher: %v", err), 1)
+		}
+
 		if err := client.Connect(); err != nil {
 			return cli.Exit(fmt.Errorf("cannot connect using transport: %w", err), 1)
 		}

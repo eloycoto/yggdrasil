@@ -17,6 +17,7 @@ import (
 type MQTT struct {
 	client         mqtt.Client
 	receiveHandler DataReceiveHandlerFunc
+	opts           *mqtt.ClientOptions
 }
 
 // NewMQTTTransport creates a transport suitable for transmitting data over a
@@ -93,9 +94,16 @@ func NewMQTTTransport(clientID string, broker string, tlsConfig *tls.Config, dat
 	opts.SetBinaryWill(fmt.Sprintf("%v/%v/control/out", yggdrasil.TopicPrefix, opts.ClientID), data, 1, false)
 
 	t.client = mqtt.NewClient(opts)
+	t.opts = opts
 	t.receiveHandler = dataRecvFunc
 
 	return &t, nil
+}
+
+func (t *MQTT) Reload(tlsConfig *tls.Config) error {
+	t.opts.SetTLSConfig(tlsConfig.Clone())
+	t.client = mqtt.NewClient(t.opts)
+	return nil
 }
 
 // Connect connects an MQTT client to the configured broker and waits for the

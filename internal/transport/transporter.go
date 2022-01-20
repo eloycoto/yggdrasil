@@ -1,5 +1,7 @@
 package transport
 
+import "crypto/tls"
+
 type DataReceiveHandlerFunc func([]byte, string)
 
 // Transporter is an interface representing the ability to send and receive
@@ -10,4 +12,5 @@ type Transporter interface {
 	Disconnect(quiesce uint)
 	SendData(data []byte, dest string) error
 	ReceiveData(data []byte, dest string) error
+	Reload(tlsConfig *tls.Config) error
 }

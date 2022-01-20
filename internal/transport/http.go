@@ -19,6 +19,8 @@ type HTTP struct {
 	dataHandler     DataReceiveHandlerFunc
 	pollingInterval time.Duration
 	disconnected    atomic.Value
+	userAgent       string
+	isTLS           bool
 }
 
 func NewHTTPTransport(clientID string, server string, tlsConfig *tls.Config, userAgent string, pollingInterval time.Duration, dataRecvFunc DataReceiveHandlerFunc) (*HTTP, error) {
@@ -31,7 +33,15 @@ func NewHTTPTransport(clientID string, server string, tlsConfig *tls.Config, use
 		pollingInterval: pollingInterval,
 		disconnected:    disconnected,
 		server:          server,
+		userAgent:       userAgent,
+		isTLS:           tlsConfig != nil,
 	}, nil
+}
+
+func (t *HTTP) Reload(tlsConfig *tls.Config) error {
+	*t.client = *http.NewHTTPClient(tlsConfig, t.userAgent)
+	t.isTLS = tlsConfig != nil
+	return nil
 }
 
 func (t *HTTP) Connect() error {
@@ -98,5 +108,9 @@ func (t *HTTP) send(message []byte, channel string) error {
 }
 
 func (t *HTTP) getUrl(direction string, channel string) string {
-	return fmt.Sprintf("http://%s/%s/%s/%s", t.server, channel, t.clientID, direction)
+	protocol := "http"
+	if t.isTLS {
+		protocol = "https"
+	}
+	return fmt.Sprintf("%s://%s/%s/%s/%s", protocol, t.server, channel, t.clientID, direction)
 }
