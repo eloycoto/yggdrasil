@@ -10,7 +10,7 @@ service Dispatcher {
     rpc Register (RegistrationRequest) returns (RegistrationResponse) {}
 
     // Send is called by a worker to send data to the dispatcher.
-    rpc Send (Data) returns (Receipt) {}
+    rpc Send (Data) returns (Response) {}
 }
 
 service Worker {
@@ -73,3 +73,14 @@ message Receipt {}
 
 // A DisconnectResponse message is sent as a successful response to a Disconnect method.
 message DisconnectResponse {}
+
+
+message Response {
+  int32 status_code = 1;
+
+  bytes body = 2;
+
+  map<string,string> metadata = 3;
+
+  bool async = 4 ;
+}

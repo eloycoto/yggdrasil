@@ -46,12 +46,12 @@ func (t *Transport) Start() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.HttpClient.Get(t.getUrl("in", "control"))
+			resp, err := t.HttpClient.Get(t.getUrl("in", "control"))
 			if err != nil {
 				log.Tracef("Error while getting work: %v", err)
 			}
-			if payload != nil && len(payload) > 0 {
-				t.controlHandler(payload, t)
+			if resp.Body != nil && len(resp.Body) > 0 {
+				t.controlHandler(resp.Body, t)
 			}
 			time.Sleep(t.pollingInterval)
 		}
@@ -62,12 +62,12 @@ func (t *Transport) Start() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.HttpClient.Get(t.getUrl("in", "data"))
+			resp, err := t.HttpClient.Get(t.getUrl("in", "data"))
 			if err != nil {
 				log.Tracef("Error while getting work: %v", err)
 			}
-			if payload != nil && len(payload) > 0 {
-				t.dataHandler(payload)
+			if resp.Body != nil && len(resp.Body) > 0 {
+				t.dataHandler(resp.Body)
 			}
 			time.Sleep(t.pollingInterval)
 		}
@@ -102,7 +102,9 @@ func (t *Transport) send(message interface{}, channel string) error {
 		"Content-Type": "application/json",
 	}
 	log.Tracef("Sending %s", string(dataBytes))
-	return t.HttpClient.Post(url, headers, dataBytes)
+	data, err := t.HttpClient.Post(url, headers, dataBytes)
+	fmt.Println(data)
+	return err
 }
 
 func (t *Transport) getUrl(direction string, channel string) string {

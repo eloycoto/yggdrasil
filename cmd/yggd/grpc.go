@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 
 	"git.sr.ht/~spc/go-log"
 	"github.com/redhatinsights/yggdrasil"
@@ -43,7 +44,7 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 		deadWorkers: make(chan int),
 		workers:     make(map[string]worker),
 		pidHandlers: make(map[int]string),
-		httpClient: httpClient,
+		httpClient:  httpClient,
 	}
 }
 
@@ -76,7 +77,7 @@ func (d *dispatcher) Register(ctx context.Context, r *pb.RegistrationRequest) (*
 	return &pb.RegistrationResponse{Registered: true, Address: w.addr}, nil
 }
 
-func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) {
+func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Response, error) {
 	data := yggdrasil.Data{
 		Type:       yggdrasil.MessageTypeData,
 		MessageID:  r.GetMessageId(),
@@ -97,20 +98,28 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 
 	if URL.Scheme == "" {
 		d.recvQ <- data
-	} else {
-		if yggdrasil.DataHost != "" {
-			URL.Host = yggdrasil.DataHost
-		}
-		if err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
-			e := fmt.Errorf("cannot post detached message content: %w", err)
-			log.Error(e)
-			return nil, e
-		}
+		return &pb.Response{StatusCode: 200, Async: true}, nil
+	}
+
+	if yggdrasil.DataHost != "" {
+		URL.Host = yggdrasil.DataHost
+	}
+
+	resp, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content)
+	var e error
+	if err != nil {
+		e := fmt.Errorf("cannot post detached message content: %w", err)
+		log.Error(e)
 	}
 	log.Debugf("received message %v", data.MessageID)
 	log.Tracef("message: %+v", data.Content)
 
-	return &pb.Receipt{}, nil
+	return &pb.Response{
+		StatusCode: resp.Code,
+		Body:       resp.Body,
+		Metadata:   resp.GetHeaders(),
+		Async:      false,
+	}, e
 }
 
 // sendData receives values on a channel and sends the data over gRPC
@@ -141,12 +150,12 @@ func (d *dispatcher) sendData() {
 					URL.Host = yggdrasil.DataHost
 				}
 
-				content, err := d.httpClient.Get(URL.String())
+				resp, err := d.httpClient.Get(URL.String())
 				if err != nil {
 					log.Errorf("cannot get detached message content: %v", err)
 					return
 				}
-				data.Content = content
+				data.Content = resp.Body
 			}
 
 			conn, err := grpc.Dial("unix:"+w.addr, grpc.WithInsecure())
