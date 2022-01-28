@@ -123,3 +123,15 @@ type Data struct {
 	Metadata   map[string]string `json:"metadata"`
 	Content    json.RawMessage   `json:"content"`
 }
+
+type DataMessage struct {
+	Data     *Data
+	Response chan *Response
+}
+
+type Response struct {
+	StatusCode int32
+	Content    []byte
+	metadata   map[string]string
+	async      bool
+}

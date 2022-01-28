@@ -1,5 +1,7 @@
 package transport
 
+import "github.com/redhatinsights/yggdrasil"
+
 type DataReceiveHandlerFunc func([]byte, string)
 
 // Transporter is an interface representing the ability to send and receive
@@ -8,6 +10,6 @@ type DataReceiveHandlerFunc func([]byte, string)
 type Transporter interface {
 	Connect() error
 	Disconnect(quiesce uint)
-	SendData(data []byte, dest string) error
+	SendData(data []byte, dest string) (yggdrasil.Response, error)
 	ReceiveData(data []byte, dest string) error
 }

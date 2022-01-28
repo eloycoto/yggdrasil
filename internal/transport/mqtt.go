@@ -115,18 +115,19 @@ func (t *MQTT) Disconnect(quiesce uint) {
 
 // SendData publishes data to an MQTT topic created by combining client
 // information with dest.
-func (t *MQTT) SendData(data []byte, dest string) error {
+func (t *MQTT) SendData(data []byte, dest string) (yggdrasil.Response, error) {
+	resp := yggdrasil.Response{StatusCode: 200}
 	opts := t.client.OptionsReader()
 	topic := fmt.Sprintf("%v/%v/%v/out", yggdrasil.TopicPrefix, opts.ClientID(), dest)
 
 	if token := t.client.Publish(topic, 1, false, data); token.Wait() && token.Error() != nil {
 		log.Errorf("failed to publish message: %v", token.Error())
-		return token.Error()
+		return resp, token.Error()
 	}
 	log.Debugf("published message to topic %v", topic)
 	log.Tracef("message: %v", string(data))
 
-	return nil
+	return resp, nil
 }
 
 func (t *MQTT) ReceiveData(data []byte, dest string) error {

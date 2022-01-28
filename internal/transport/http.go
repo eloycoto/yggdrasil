@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"git.sr.ht/~spc/go-log"
+	"github.com/redhatinsights/yggdrasil"
 	"github.com/redhatinsights/yggdrasil/internal/http"
 )
 
@@ -76,8 +77,10 @@ func (t *HTTP) Disconnect(quiesce uint) {
 	t.disconnected.Store(true)
 }
 
-func (t *HTTP) SendData(data []byte, dest string) error {
-	return t.send(data, dest)
+func (t *HTTP) SendData(data []byte, dest string) (yggdrasil.Response, error) {
+	resp := yggdrasil.Response{StatusCode: 200}
+	err := t.send(data, dest)
+	return resp, err
 }
 
 func (t *HTTP) ReceiveData(data []byte, dest string) error {
