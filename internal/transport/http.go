@@ -42,12 +42,12 @@ func (t *HTTP) Connect() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.client.Get(t.getUrl("in", "control"))
+			res, err := t.client.Get(t.getUrl("in", "control"))
 			if err != nil {
 				log.Tracef("cannot get HTTP request: %v", err)
 			}
-			if len(payload) > 0 {
-				_ = t.ReceiveData(payload, "control")
+			if len(res.Content) > 0 {
+				_ = t.ReceiveData(res.Content, "control")
 			}
 			time.Sleep(t.pollingInterval)
 		}
@@ -58,12 +58,12 @@ func (t *HTTP) Connect() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.client.Get(t.getUrl("in", "data"))
+			res, err := t.client.Get(t.getUrl("in", "data"))
 			if err != nil {
 				log.Tracef("cannot get HTTP request: %v", err)
 			}
-			if len(payload) > 0 {
-				_ = t.ReceiveData(payload, "data")
+			if len(res.Content) > 0 {
+				_ = t.ReceiveData(res.Content, "data")
 			}
 			time.Sleep(t.pollingInterval)
 		}
@@ -78,8 +78,12 @@ func (t *HTTP) Disconnect(quiesce uint) {
 }
 
 func (t *HTTP) SendData(data []byte, dest string) (yggdrasil.Response, error) {
-	resp := yggdrasil.Response{StatusCode: 200}
-	err := t.send(data, dest)
+
+	upstreamResponse, err := t.send(data, dest)
+	resp := yggdrasil.Response{
+		StatusCode: int32(upstreamResponse.StatusCode),
+		Content:    upstreamResponse.Content,
+	}
 	return resp, err
 }
 
@@ -88,9 +92,9 @@ func (t *HTTP) ReceiveData(data []byte, dest string) error {
 	return nil
 }
 
-func (t *HTTP) send(message []byte, channel string) error {
+func (t *HTTP) send(message []byte, channel string) (*http.Response, error) {
 	if t.disconnected.Load().(bool) {
-		return nil
+		return nil, nil
 	}
 	url := t.getUrl("out", channel)
 	headers := map[string]string{

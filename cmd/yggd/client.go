@@ -49,7 +49,9 @@ func (c *Client) sendMessageWithMessage(msg interface{}, dest string, respC chan
 	if err != nil {
 		return fmt.Errorf("cannot marshal message: %w", err)
 	}
-	_, err = c.t.SendData(data, dest)
+	resp, err := c.t.SendData(data, dest)
+	fmt.Printf("sendMessageWithMessagei %+v \n", resp)
+	respC <- &resp
 	return err
 }
 
