@@ -77,7 +77,7 @@ func (t *HTTP) Disconnect(quiesce uint) {
 	t.disconnected.Store(true)
 }
 
-func (t *HTTP) SendData(data []byte, dest string) error {
+func (t *HTTP) SendData(data []byte, dest string) (*http.Response, error) {
 	return t.send(data, dest)
 }
 
@@ -86,9 +86,9 @@ func (t *HTTP) ReceiveData(data []byte, dest string) error {
 	return nil
 }
 
-func (t *HTTP) send(message []byte, channel string) error {
+func (t *HTTP) send(message []byte, channel string) (*http.Response, error) {
 	if t.disconnected.Load().(bool) {
-		return nil
+		return nil, nil
 	}
 	url := t.getUrl("out", channel)
 	headers := map[string]string{

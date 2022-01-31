@@ -112,7 +112,7 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 		if yggdrasil.DataHost != "" {
 			URL.Host = yggdrasil.DataHost
 		}
-		if err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
+		if _, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
 			e := fmt.Errorf("cannot post detached message content: %w", err)
 			log.Error(e)
 			return nil, e

@@ -40,7 +40,8 @@ func (c *Client) sendMessage(msg interface{}, dest string) error {
 	if err != nil {
 		return fmt.Errorf("cannot marshal message: %w", err)
 	}
-	return c.t.SendData(data, dest)
+	_, err = c.t.SendData(data, dest)
+	return err
 }
 
 // ReceiveDataMessage sends a value to a channel for dispatching to worker processes.
@@ -78,7 +79,7 @@ func (c *Client) ReceiveControlMessage(msg *yggdrasil.Control) error {
 			if err != nil {
 				return fmt.Errorf("cannot marshal event: %w", err)
 			}
-			if err := c.t.SendData(data, "control"); err != nil {
+			if _, err := c.t.SendData(data, "control"); err != nil {
 				return fmt.Errorf("cannot send data: %w", err)
 			}
 		case yggdrasil.CommandNameDisconnect:
@@ -141,7 +142,8 @@ func (c *Client) DataReceiveHandlerFunc(data []byte, dest string) {
 // sends them using the configured transport.
 func (c *Client) ReceiveData() {
 	for msg := range c.d.recvQ {
-		if err := c.SendDataMessage(msg.Data); err != nil {
+		err := c.SendDataMessage(msg.Data)
+		if err != nil {
 			log.Errorf("cannot send data message: %v", err)
 		}
 		msg.Res <- true
