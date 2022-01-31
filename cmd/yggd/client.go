@@ -141,9 +141,10 @@ func (c *Client) DataReceiveHandlerFunc(data []byte, dest string) {
 // sends them using the configured transport.
 func (c *Client) ReceiveData() {
 	for msg := range c.d.recvQ {
-		if err := c.SendDataMessage(&msg); err != nil {
+		if err := c.SendDataMessage(msg.Data); err != nil {
 			log.Errorf("cannot send data message: %v", err)
 		}
+		msg.Res <- true
 	}
 }
 

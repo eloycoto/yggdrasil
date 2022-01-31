@@ -36,38 +36,38 @@ func NewHTTPTransport(clientID string, server string, tlsConfig *tls.Config, use
 
 func (t *HTTP) Connect() error {
 	t.disconnected.Store(false)
-	go func() {
-		for {
-			if t.disconnected.Load().(bool) {
-				return
-			}
-			res, err := t.client.Get(t.getUrl("in", "control"))
-			if err != nil {
-				log.Tracef("cannot get HTTP request: %v", err)
-			}
-			if err == nil && len(res.Content) > 0 {
-				_ = t.ReceiveData(res.Content, "control")
-			}
-			time.Sleep(t.pollingInterval)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		if t.disconnected.Load().(bool) {
+	// 			return
+	// 		}
+	// 		res, err := t.client.Get(t.getUrl("in", "control"))
+	// 		if err != nil {
+	// 			log.Tracef("cannot get HTTP request: %v", err)
+	// 		}
+	// 		if err == nil && len(res.Content) > 0 {
+	// 			_ = t.ReceiveData(res.Content, "control")
+	// 		}
+	// 		time.Sleep(t.pollingInterval)
+	// 	}
+	// }()
 
-	go func() {
-		for {
-			if t.disconnected.Load().(bool) {
-				return
-			}
-			res, err := t.client.Get(t.getUrl("in", "data"))
-			if err != nil {
-				log.Tracef("cannot get HTTP request: %v", err)
-			}
+	// go func() {
+	// 	for {
+	// 		if t.disconnected.Load().(bool) {
+	// 			return
+	// 		}
+	// 		res, err := t.client.Get(t.getUrl("in", "data"))
+	// 		if err != nil {
+	// 			log.Tracef("cannot get HTTP request: %v", err)
+	// 		}
 
-			if err == nil && len(res.Content) > 0 {
-				_ = t.ReceiveData(res.Content, "data")
-			}
-			time.Sleep(t.pollingInterval)
-		}
-	}()
+	// 		if err == nil && len(res.Content) > 0 {
+	// 			_ = t.ReceiveData(res.Content, "data")
+	// 		}
+	// 		time.Sleep(t.pollingInterval)
+	// 	}
+	// }()
 
 	return nil
 }
@@ -99,5 +99,5 @@ func (t *HTTP) send(message []byte, channel string) error {
 }
 
 func (t *HTTP) getUrl(direction string, channel string) string {
-	return fmt.Sprintf("http://%s/%s/%s/%s", t.server, channel, t.clientID, direction)
+	return fmt.Sprintf("http://%s/api/k4e-management/v1/%s/%s/%s", t.server, channel, t.clientID, direction)
 }

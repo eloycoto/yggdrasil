@@ -27,7 +27,7 @@ type dispatcher struct {
 	pb.UnimplementedDispatcherServer
 	dispatchers chan map[string]map[string]string
 	sendQ       chan yggdrasil.Data
-	recvQ       chan yggdrasil.Data
+	recvQ       chan yggdrasil.DataMessage
 	deadWorkers chan int
 	reg         registry
 	pidHandlers map[int]string
@@ -38,7 +38,7 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 	return &dispatcher{
 		dispatchers: make(chan map[string]map[string]string),
 		sendQ:       make(chan yggdrasil.Data),
-		recvQ:       make(chan yggdrasil.Data),
+		recvQ:       make(chan yggdrasil.DataMessage),
 		deadWorkers: make(chan int),
 		reg:         registry{},
 		pidHandlers: make(map[int]string),
@@ -85,6 +85,7 @@ func (d *dispatcher) GetConfig(ctx context.Context, _ *pb.Empty) (*pb.Config, er
 }
 
 func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) {
+	log.Error("Send happens here!")
 	data := yggdrasil.Data{
 		Type:       yggdrasil.MessageTypeData,
 		MessageID:  r.GetMessageId(),
@@ -102,9 +103,11 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 		log.Error(e)
 		return nil, e
 	}
-
+	var res bool
+	c := make(chan bool)
 	if URL.Scheme == "" {
-		d.recvQ <- data
+		d.recvQ <- yggdrasil.DataMessage{Data: &data, Res: c}
+		res = <-c
 	} else {
 		if yggdrasil.DataHost != "" {
 			URL.Host = yggdrasil.DataHost
@@ -117,7 +120,7 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 	}
 	log.Debugf("received message %v", data.MessageID)
 	log.Tracef("message: %+v", data.Content)
-
+	log.Error("Res is -->", res)
 	return &pb.Receipt{}, nil
 }
 
