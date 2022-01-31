@@ -12,6 +12,11 @@ import (
 	"github.com/redhatinsights/yggdrasil"
 )
 
+type Response struct {
+	StatusCode int
+	Content    []byte
+}
+
 // Client is a specialized HTTP client, configured with mutual TLS certificate
 // authentication.
 type Client struct {
@@ -33,7 +38,7 @@ func NewHTTPClient(config *tls.Config, ua string) *Client {
 	}
 }
 
-func (c *Client) Get(url string) ([]byte, error) {
+func (c *Client) Get(url string) (*Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create HTTP request: %w", err)
@@ -55,11 +60,16 @@ func (c *Client) Get(url string) ([]byte, error) {
 	}
 	log.Debugf("received HTTP %v: %v", resp.Status, strings.TrimSpace(string(data)))
 
-	if resp.StatusCode >= 400 {
-		return nil, &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
+	res := &Response{
+		StatusCode: resp.StatusCode,
+		Content:    data,
 	}
 
-	return data, nil
+	if resp.StatusCode >= 400 {
+		return res, &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
+	}
+
+	return res, nil
 }
 
 func (c *Client) Post(url string, headers map[string]string, body []byte) error {

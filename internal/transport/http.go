@@ -41,12 +41,12 @@ func (t *HTTP) Connect() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.client.Get(t.getUrl("in", "control"))
+			res, err := t.client.Get(t.getUrl("in", "control"))
 			if err != nil {
 				log.Tracef("cannot get HTTP request: %v", err)
 			}
-			if len(payload) > 0 {
-				_ = t.ReceiveData(payload, "control")
+			if err == nil && len(res.Content) > 0 {
+				_ = t.ReceiveData(res.Content, "control")
 			}
 			time.Sleep(t.pollingInterval)
 		}
@@ -57,12 +57,13 @@ func (t *HTTP) Connect() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.client.Get(t.getUrl("in", "data"))
+			res, err := t.client.Get(t.getUrl("in", "data"))
 			if err != nil {
 				log.Tracef("cannot get HTTP request: %v", err)
 			}
-			if len(payload) > 0 {
-				_ = t.ReceiveData(payload, "data")
+
+			if err == nil && len(res.Content) > 0 {
+				_ = t.ReceiveData(res.Content, "data")
 			}
 			time.Sleep(t.pollingInterval)
 		}
