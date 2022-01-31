@@ -103,8 +103,9 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 		log.Error(e)
 		return nil, e
 	}
-	var res bool
-	c := make(chan bool)
+
+	var res *yggdrasil.Response
+	c := make(chan *yggdrasil.Response)
 	if URL.Scheme == "" {
 		d.recvQ <- yggdrasil.DataMessage{Data: &data, Res: c}
 		res = <-c
@@ -112,15 +113,23 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 		if yggdrasil.DataHost != "" {
 			URL.Host = yggdrasil.DataHost
 		}
-		if _, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
+
+		resp, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content)
+		if err != nil {
 			e := fmt.Errorf("cannot post detached message content: %w", err)
 			log.Error(e)
 			return nil, e
 		}
+
+		res = &yggdrasil.Response{StatusCode: resp.StatusCode, Content: resp.Content}
 	}
+
 	log.Debugf("received message %v", data.MessageID)
 	log.Tracef("message: %+v", data.Content)
-	log.Error("Res is -->", res)
+	if res == nil {
+		return &pb.Receipt{}, fmt.Errorf("Failed response")
+	}
+
 	return &pb.Receipt{}, nil
 }
 

@@ -124,7 +124,12 @@ type Data struct {
 	Content    json.RawMessage   `json:"content"`
 }
 
+type Response struct {
+	StatusCode int
+	Content    []byte
+}
+
 type DataMessage struct {
 	Data *Data
-	Res  chan bool
+	Res  chan *Response
 }

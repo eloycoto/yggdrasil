@@ -11,6 +11,7 @@ import (
 	"git.sr.ht/~spc/go-log"
 	"github.com/google/uuid"
 	"github.com/redhatinsights/yggdrasil"
+	"github.com/redhatinsights/yggdrasil/internal/http"
 	"github.com/redhatinsights/yggdrasil/internal/transport"
 )
 
@@ -23,25 +24,25 @@ func (c *Client) Connect() error {
 	return c.t.Connect()
 }
 
-func (c *Client) SendDataMessage(msg *yggdrasil.Data) error {
+func (c *Client) SendDataMessage(msg *yggdrasil.Data) (*http.Response, error) {
 	return c.sendMessage(msg, "data")
 }
 
-func (c *Client) SendConnectionStatusMessage(msg *yggdrasil.ConnectionStatus) error {
+func (c *Client) SendConnectionStatusMessage(msg *yggdrasil.ConnectionStatus) (*http.Response, error) {
 	return c.sendMessage(msg, "control")
 }
 
-func (c *Client) SendEventMessage(msg *yggdrasil.Event) error {
+func (c *Client) SendEventMessage(msg *yggdrasil.Event) (*http.Response, error) {
 	return c.sendMessage(msg, "control")
 }
 
-func (c *Client) sendMessage(msg interface{}, dest string) error {
+func (c *Client) sendMessage(msg interface{}, dest string) (*http.Response, error) {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("cannot marshal message: %w", err)
+		return nil, fmt.Errorf("cannot marshal message: %w", err)
 	}
-	_, err = c.t.SendData(data, dest)
-	return err
+	return c.t.SendData(data, dest)
+
 }
 
 // ReceiveDataMessage sends a value to a channel for dispatching to worker processes.
@@ -142,11 +143,17 @@ func (c *Client) DataReceiveHandlerFunc(data []byte, dest string) {
 // sends them using the configured transport.
 func (c *Client) ReceiveData() {
 	for msg := range c.d.recvQ {
-		err := c.SendDataMessage(msg.Data)
+		res, err := c.SendDataMessage(msg.Data)
 		if err != nil {
 			log.Errorf("cannot send data message: %v", err)
+
 		}
-		msg.Res <- true
+		if res != nil {
+			newresp := yggdrasil.Response{StatusCode: res.StatusCode, Content: res.Content}
+			msg.Res <- &newresp
+			continue
+		}
+		msg.Res <- nil
 	}
 }
 

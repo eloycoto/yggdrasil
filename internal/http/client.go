@@ -103,7 +103,7 @@ func (c *Client) Post(url string, headers map[string]string, body []byte) (*Resp
 		Content:    data,
 	}
 	if resp.StatusCode >= 400 {
-		return nil, &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
+		return res, &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
 	}
 
 	return res, nil
