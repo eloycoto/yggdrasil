@@ -1,6 +1,8 @@
 package transport
 
-import "crypto/tls"
+import (
+	"crypto/tls"
+)
 
 type DataReceiveHandlerFunc func([]byte, string)
 
@@ -10,7 +12,7 @@ type DataReceiveHandlerFunc func([]byte, string)
 type Transporter interface {
 	Connect() error
 	Disconnect(quiesce uint)
-	SendData(data []byte, dest string) error
+	SendData(data []byte, dest string) ([]byte, error)
 	ReceiveData(data []byte, dest string) error
 	ReloadTLSConfig(tlsConfig *tls.Config) error
 }
