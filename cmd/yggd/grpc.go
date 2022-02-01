@@ -16,6 +16,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	sendResponseTimeout = 20 * time.Second
+)
+
 type worker struct {
 	pid             int
 	handler         string
@@ -28,7 +32,7 @@ type dispatcher struct {
 	pb.UnimplementedDispatcherServer
 	dispatchers chan map[string]map[string]string
 	sendQ       chan yggdrasil.Data
-	recvQ       chan yggdrasil.Data
+	recvQ       chan yggdrasil.DataMessage
 	deadWorkers chan int
 	reg         registry
 	pidHandlers map[int]string
@@ -39,7 +43,7 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 	return &dispatcher{
 		dispatchers: make(chan map[string]map[string]string),
 		sendQ:       make(chan yggdrasil.Data),
-		recvQ:       make(chan yggdrasil.Data),
+		recvQ:       make(chan yggdrasil.DataMessage),
 		deadWorkers: make(chan int),
 		reg:         registry{},
 		pidHandlers: make(map[int]string),
@@ -86,7 +90,7 @@ func (d *dispatcher) GetConfig(ctx context.Context, _ *pb.Empty) (*pb.Config, er
 }
 
 func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Response, error) {
-	data := yggdrasil.Data{
+	data := &yggdrasil.Data{
 		Type:       yggdrasil.MessageTypeData,
 		MessageID:  r.GetMessageId(),
 		ResponseTo: r.GetResponseTo(),
@@ -104,14 +108,29 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Response, error)
 		return nil, e
 	}
 
+	var res []byte
 	if URL.Scheme == "" {
-		d.recvQ <- data
+		resC := make(chan []byte, 1)
+		d.recvQ <- yggdrasil.DataMessage{Data: data, Response: resC}
+		select {
+		case <-time.After(sendResponseTimeout):
+			log.Error("No response from recvQ queue")
+		case val := <-resC:
+			res = val
+		}
 	} else {
 		if yggdrasil.DataHost != "" {
 			URL.Host = yggdrasil.DataHost
 		}
-		if _, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
+		httpRes, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content)
+		if err != nil {
 			e := fmt.Errorf("cannot post detached message content: %w", err)
+			log.Error(e)
+			return nil, e
+		}
+		res, err = json.Marshal(httpRes)
+		if err != nil {
+			e := fmt.Errorf("cannot marshal post detached content: %w", err)
 			log.Error(e)
 			return nil, e
 		}
@@ -119,7 +138,9 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Response, error)
 	log.Debugf("received message %v", data.MessageID)
 	log.Tracef("message: %+v", data.Content)
 
-	return &pb.Response{}, nil
+	return &pb.Response{
+		Response: res,
+	}, nil
 }
 
 // DisconnectWorkers sends a RECEIVED_DISCONNECT event message to all registered
