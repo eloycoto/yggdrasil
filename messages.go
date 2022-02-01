@@ -123,3 +123,14 @@ type Data struct {
 	Metadata   map[string]string `json:"metadata"`
 	Content    json.RawMessage   `json:"content"`
 }
+
+type TransportResponse struct {
+	// StatusCode response
+	StatusCode int
+	// Response Body
+	Body []byte
+	// IsAsync defines if the transport is  async or sync
+	IsAsync bool
+	// Mestadata added by the transport, in case of http are the headers
+	Metadata map[string]string
+}

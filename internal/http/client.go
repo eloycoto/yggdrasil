@@ -33,7 +33,7 @@ func NewHTTPClient(config *tls.Config, ua string) *Client {
 	}
 }
 
-func (c *Client) Get(url string) ([]byte, error) {
+func (c *Client) Get(url string) (*yggdrasil.TransportResponse, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create HTTP request: %w", err)
@@ -46,26 +46,15 @@ func (c *Client) Get(url string) ([]byte, error) {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("cannot download from URL: %w", err)
-	}
-	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read response body: %w", err)
 	}
-	log.Debugf("received HTTP %v: %v", resp.Status, strings.TrimSpace(string(data)))
-
-	if resp.StatusCode >= 400 {
-		return nil, &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
-	}
-
-	return data, nil
+	return createResponse(resp)
 }
 
-func (c *Client) Post(url string, headers map[string]string, body []byte) error {
+func (c *Client) Post(url string, headers map[string]string, body []byte) (*yggdrasil.TransportResponse, error) {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("cannot create HTTP request: %w", err)
+		return nil, fmt.Errorf("cannot create HTTP request: %w", err)
 	}
 
 	for k, v := range headers {
@@ -78,19 +67,31 @@ func (c *Client) Post(url string, headers map[string]string, body []byte) error 
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("cannot post to URL: %w", err)
+		return nil, fmt.Errorf("cannot post to URL: %w", err)
 	}
-	defer resp.Body.Close()
+	return createResponse(resp)
+}
 
+func createResponse(resp *http.Response) (*yggdrasil.TransportResponse, error) {
+	result := &yggdrasil.TransportResponse{
+		StatusCode: resp.StatusCode,
+		Metadata:   map[string]string{},
+	}
+
+	for k, v := range resp.Header {
+		result.Metadata[k] = strings.Join(v, ";")
+	}
+
+	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("cannot read response body: %w", err)
+		return result, fmt.Errorf("cannot read response body: %w", err)
 	}
 	log.Debugf("received HTTP %v: %v", resp.Status, strings.TrimSpace(string(data)))
-
+	result.Body = data
 	if resp.StatusCode >= 400 {
-		return &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
+		return result, &yggdrasil.APIResponseError{Code: resp.StatusCode, Body: strings.TrimSpace(string(data))}
 	}
 
-	return nil
+	return result, nil
 }
