@@ -92,9 +92,8 @@ func (t *HTTP) Disconnect(quiesce uint) {
 	t.disconnected.Store(true)
 }
 
-func (t *HTTP) SendData(data []byte, dest string) error {
-	_, err := t.send(data, dest)
-	return err
+func (t *HTTP) SendData(data []byte, dest string) (*yggdrasil.TransportResponse, error) {
+	return t.send(data, dest)
 }
 
 func (t *HTTP) ReceiveData(data []byte, dest string) error {
