@@ -124,6 +124,17 @@ type Data struct {
 	Content    json.RawMessage   `json:"content"`
 }
 
+// DataMessage is similar to Data, but adds a channel where the response will
+// be send.
+type DataMessage struct {
+
+	// Data structure to be send to the transport.
+	Data *Data
+
+	// Response channel where transport will send the response back when he finished.
+	Response chan *TransportResponse
+}
+
 type TransportResponse struct {
 	// StatusCode response
 	StatusCode int
